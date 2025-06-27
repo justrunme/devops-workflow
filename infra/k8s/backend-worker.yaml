@@ -1,0 +1,26 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend-worker
+  labels:
+    app: backend-worker
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: backend-worker
+  template:
+    metadata:
+      labels:
+        app: backend-worker
+    spec:
+      containers:
+      - name: backend-worker
+        image: YOUR_DOCKER_HUB_USERNAME/backend-worker:latest # Placeholder for Docker image
+        env:
+        - name: REDIS_HOST
+          value: "redis"
+        resources:
+          limits:
+            memory: "256Mi"
+            cpu: "200m"

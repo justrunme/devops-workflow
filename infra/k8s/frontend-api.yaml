@@ -1,0 +1,43 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend-api
+  labels:
+    app: frontend-api
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: frontend-api
+  template:
+    metadata:
+      labels:
+        app: frontend-api
+    spec:
+      containers:
+      - name: frontend-api
+        image: YOUR_DOCKER_HUB_USERNAME/frontend-api:latest # Placeholder for Docker image
+        ports:
+        - containerPort: 3000
+        env:
+        - name: REDIS_URL
+          value: "redis://redis:6379"
+        resources:
+          limits:
+            memory: "256Mi"
+            cpu: "200m"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: frontend-api
+  labels:
+    app: frontend-api
+spec:
+  type: NodePort # Changed from LoadBalancer for Minikube
+  selector:
+    app: frontend-api
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 3000
