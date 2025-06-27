@@ -104,53 +104,37 @@ jobs:
 
     - name: Test Frontend API
       run: |
-        FRONTEND_URL="http://localhost:${{ steps.get_nodeport.outputs.NODE_PORT }}"
-        echo "Testing Frontend API at $FRONTEND_URL"
-
-        kubectl port-forward service/frontend-api 8080:80 & 
+        echo "Port-forwarding service/frontend-api:80 → localhost:8080..."
+        kubectl port-forward service/frontend-api 8080:80 &
         PORT_FORWARD_PID=$!
         sleep 10
 
+        echo "Sending markdown to http://localhost:8080/convert"
         RESPONSE=$(curl -s -X POST -H "Content-Type: application/json" -d '{"markdown": "# Hello from Kind!\n\nThis is a **test**."}' http://localhost:8080/convert)
-        echo "Frontend API Response: $RESPONSE"
-        TASK_ID=$(echo $RESPONSE | jq -r '.id')
 
+        echo "Response: $RESPONSE"
+        TASK_ID=$(echo $RESPONSE | jq -r '.id')
         if [ -z "$TASK_ID" ]; then
-          echo "Error: Could not get TASK_ID from frontend API response."
+          echo "❌ Error: Could not get task ID."
           exit 1
         fi
 
-        MAX_ATTEMPTS=10
-        ATTEMPT=0
-        while [ $ATTEMPT -lt $MAX_ATTEMPTS ]; do
-          RESULT_RESPONSE=$(curl -s http://localhost:8080/result/$TASK_ID)
-          STATUS=$(echo $RESULT_RESPONSE | jq -r '.status')
+        # wait for task to complete
+        for i in {1..10}; do
+          RESULT=$(curl -s http://localhost:8080/result/$TASK_ID)
+          STATUS=$(echo $RESULT | jq -r '.status')
 
-          if [ "$STATUS" == "completed" ]; then
-            HTML_CONTENT=$(echo $RESULT_RESPONSE | jq -r '.html')
-            echo "$HTML_CONTENT"
-
-            if ! echo "$HTML_CONTENT" | grep -q "<h1>Hello from Kind!</h1>"; then
-              echo "Missing expected <h1> header"
-              exit 1
-            fi
-            if ! echo "$HTML_CONTENT" | grep -q "<strong>test</strong>"; then
-              echo "Missing expected <strong> text"
-              exit 1
-            fi
+          if [ "$STATUS" = "completed" ]; then
+            echo "✅ Task completed."
+            HTML=$(echo $RESULT | jq -r '.html')
+            echo "$HTML" | grep -q "<h1>Hello from Kind!</h1>" || { echo "❌ Missing <h1>"; exit 1; }
+            echo "$HTML" | grep -q "<strong>test</strong>" || { echo "❌ Missing <strong>"; exit 1; }
             break
-          elif [ "$STATUS" == "failed" ]; then
-            echo "Task failed"
-            exit 1
           fi
-          ATTEMPT=$((ATTEMPT+1))
+
+          echo "⏳ Waiting for result..."
           sleep 5
         done
-
-        if [ "$STATUS" != "completed" ]; then
-          echo "Task did not complete in time"
-          exit 1
-        fi
 
         kill $PORT_FORWARD_PID || true
 
