@@ -63,6 +63,12 @@ jobs:
         kind load docker-image ${{ env.DOCKER_USERNAME }}/devops-workflow-frontend-api:${{ env.IMAGE_TAG }} --name ${{ env.KIND_CLUSTER_NAME }}
         kind load docker-image ${{ env.DOCKER_USERNAME }}/devops-workflow-backend-worker:${{ env.IMAGE_TAG }} --name ${{ env.KIND_CLUSTER_NAME }}
 
+    - name: Set KUBECONFIG for Terraform
+      run: echo "KUBECONFIG=$HOME/.kube/config" >> $GITHUB_ENV
+
+    - name: Check Kind cluster connectivity
+      run: kubectl get nodes
+
     - name: Debug Kubeconfig
       run: |
         echo "KUBECONFIG environment variable: $KUBECONFIG"
@@ -78,16 +84,7 @@ jobs:
       with:
         terraform_version: 1.8.0
 
-    - name: Export KUBECONFIG
-      run: |
-        echo "KUBECONFIG=$HOME/.kube/config" >> $GITHUB_ENV
-
-    - name: Check Kubernetes cluster connectivity
-      run: |
-        echo "Current context:"
-        kubectl config current-context
-        echo "Nodes:"
-        kubectl get nodes
+    
 
     - name: Terraform Init
       run: terraform init
