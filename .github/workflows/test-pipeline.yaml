@@ -38,7 +38,7 @@ jobs:
       with:
         context: ./frontend-api
         push: true
-        load: true # Add this line to load the image into Docker daemon
+        load: true
         tags: ${{ env.DOCKER_USERNAME }}/devops-workflow-frontend-api:${{ env.IMAGE_TAG }}
 
     - name: Build and push backend-worker Docker image
@@ -46,7 +46,7 @@ jobs:
       with:
         context: ./backend-worker
         push: true
-        load: true # Add this line to load the image into Docker daemon
+        load: true
         tags: ${{ env.DOCKER_USERNAME }}/devops-workflow-backend-worker:${{ env.IMAGE_TAG }}
 
     - name: Install Kind
@@ -58,33 +58,21 @@ jobs:
     - name: Create Kind cluster
       run: kind create cluster --name ${{ env.KIND_CLUSTER_NAME }}
 
+    - name: Set KUBECONFIG for Terraform
+      run: echo "KUBECONFIG=$HOME/.kube/config" >> $GITHUB_ENV
+
+    - name: Check Kind cluster
+      run: kubectl get nodes
+
     - name: Load Docker images into Kind cluster
       run: |
         kind load docker-image ${{ env.DOCKER_USERNAME }}/devops-workflow-frontend-api:${{ env.IMAGE_TAG }} --name ${{ env.KIND_CLUSTER_NAME }}
         kind load docker-image ${{ env.DOCKER_USERNAME }}/devops-workflow-backend-worker:${{ env.IMAGE_TAG }} --name ${{ env.KIND_CLUSTER_NAME }}
 
-    - name: Set KUBECONFIG for Terraform
-      run: echo "KUBECONFIG=$HOME/.kube/config" >> $GITHUB_ENV
-
-    - name: Check Kind cluster connectivity
-      run: kubectl get nodes
-
-    - name: Debug Kubeconfig
-      run: |
-        echo "KUBECONFIG environment variable: $KUBECONFIG"
-        if [ -f "$KUBECONFIG" ]; then
-          echo "Kubeconfig file content:"
-          cat "$KUBECONFIG"
-        else
-          echo "Kubeconfig file not found at $KUBECONFIG"
-        fi
-
     - name: Set up Terraform
       uses: hashicorp/setup-terraform@v3
       with:
         terraform_version: 1.8.0
-
-    
 
     - name: Terraform Init
       run: terraform init
@@ -111,13 +99,10 @@ jobs:
         FRONTEND_URL="http://localhost:${{ steps.get_nodeport.outputs.NODE_PORT }}"
         echo "Testing Frontend API at $FRONTEND_URL"
 
-        # Port-forward the frontend-api service to localhost
         kubectl port-forward service/frontend-api 8080:80 & 
         PORT_FORWARD_PID=$!
-        echo "Port-forwarding frontend-api to localhost:8080 (PID: $PORT_FORWARD_PID)"
-        sleep 10 # Give port-forward time to establish
+        sleep 10
 
-        # Submit markdown
         RESPONSE=$(curl -s -X POST -H "Content-Type: application/json" -d '{"markdown": "# Hello from Kind!\n\nThis is a **test**."}' http://localhost:8080/convert)
         echo "Frontend API Response: $RESPONSE"
         TASK_ID=$(echo $RESPONSE | jq -r '.id')
@@ -126,49 +111,41 @@ jobs:
           echo "Error: Could not get TASK_ID from frontend API response."
           exit 1
         fi
-        echo "Task ID: $TASK_ID"
 
-        # Poll for result
         MAX_ATTEMPTS=10
         ATTEMPT=0
         while [ $ATTEMPT -lt $MAX_ATTEMPTS ]; do
-          echo "Attempt $((ATTEMPT + 1)) to get result for task $TASK_ID..."
           RESULT_RESPONSE=$(curl -s http://localhost:8080/result/$TASK_ID)
-          echo "Result Response: $RESULT_RESPONSE"
           STATUS=$(echo $RESULT_RESPONSE | jq -r '.status')
 
           if [ "$STATUS" == "completed" ]; then
-            echo "Task completed successfully!"
             HTML_CONTENT=$(echo $RESULT_RESPONSE | jq -r '.html')
-            if echo "$HTML_CONTENT" | grep -q "<h1>Hello from Kind!</h1>"; then
-              echo "HTML content contains expected heading."
-            else
-              echo "Error: HTML content does not contain expected heading."
+            echo "$HTML_CONTENT"
+
+            if ! echo "$HTML_CONTENT" | grep -q "<h1>Hello from Kind!</h1>"; then
+              echo "Missing expected <h1> header"
               exit 1
             fi
             if ! echo "$HTML_CONTENT" | grep -q "<strong>test</strong>"; then
-              echo "Error: HTML content does not contain expected bold text."
+              echo "Missing expected <strong> text"
               exit 1
             fi
             break
           elif [ "$STATUS" == "failed" ]; then
-            echo "Task failed."
+            echo "Task failed"
             exit 1
           fi
-
-          ATTEMPT=$((ATTEMPT + 1))
+          ATTEMPT=$((ATTEMPT+1))
           sleep 5
         done
 
         if [ "$STATUS" != "completed" ]; then
-          echo "Error: Task did not complete within the expected time."
+          echo "Task did not complete in time"
           exit 1
         fi
 
-        # Kill port-forward process
-        kill $PORT_FORWARD_PID
-        echo "Port-forwarding stopped."
+        kill $PORT_FORWARD_PID || true
 
     - name: Cleanup Kind cluster
-      if: always() # Run even if previous steps fail
+      if: always()
       run: kind delete cluster --name ${{ env.KIND_CLUSTER_NAME }}
