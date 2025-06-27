@@ -58,6 +58,11 @@ jobs:
     - name: Create Kind cluster
       run: kind create cluster --name ${{ env.KIND_CLUSTER_NAME }}
 
+    - name: Get Kind Kubeconfig
+      run: |
+        kind get kubeconfig --name ${{ env.KIND_CLUSTER_NAME }} > ${{ github.workspace }}/kubeconfig
+        echo "KUBECONFIG=${{ github.workspace }}/kubeconfig" >> $GITHUB_ENV
+
     - name: Load Docker images into Kind cluster
       run: |
         kind load docker-image ${{ env.DOCKER_USERNAME }}/devops-workflow-frontend-api:${{ env.IMAGE_TAG }} --name ${{ env.KIND_CLUSTER_NAME }}
