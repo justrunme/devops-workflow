@@ -58,10 +58,25 @@ jobs:
     - name: Create Kind cluster
       run: kind create cluster --name ${{ env.KIND_CLUSTER_NAME }}
 
-    - name: Get Kind Kubeconfig
+    - name: Install yq
       run: |
-        kind get kubeconfig --name ${{ env.KIND_CLUSTER_NAME }} > ${{ github.workspace }}/kubeconfig
-        echo "KUBECONFIG=${{ github.workspace }}/kubeconfig" >> $GITHUB_ENV
+        sudo wget https://github.com/mikefarah/yq/releases/download/v4.35.2/yq_linux_amd64 -O /usr/local/bin/yq
+        sudo chmod +x /usr/local/bin/yq
+
+    - name: Get Kind Kubeconfig details
+      run: |
+        KUBECONFIG_CONTENT=$(kind get kubeconfig --name ${{ env.KIND_CLUSTER_NAME }})
+        echo "$KUBECONFIG_CONTENT" > /tmp/kubeconfig.yaml
+        
+        CLUSTER_SERVER=$(yq '.clusters[0].cluster.server' /tmp/kubeconfig.yaml)
+        CLUSTER_CA_CERT=$(yq '.clusters[0].cluster["certificate-authority-data"]' /tmp/kubeconfig.yaml)
+        CLIENT_CERT=$(yq '.users[0].user["client-certificate-data"]' /tmp/kubeconfig.yaml)
+        CLIENT_KEY=$(yq '.users[0].user["client-key-data"]' /tmp/kubeconfig.yaml)
+
+        echo "KUBE_SERVER=$CLUSTER_SERVER" >> $GITHUB_ENV
+        echo "KUBE_CA_CERT=$CLUSTER_CA_CERT" >> $GITHUB_ENV
+        echo "KUBE_CLIENT_CERT=$CLIENT_CERT" >> $GITHUB_ENV
+        echo "KUBE_CLIENT_KEY=$CLIENT_KEY" >> $GITHUB_ENV
 
     - name: Load Docker images into Kind cluster
       run: |
@@ -78,7 +93,13 @@ jobs:
       working-directory: ./infra/terraform
 
     - name: Terraform Apply
-      run: terraform apply -auto-approve -var="docker_username=${{ env.DOCKER_USERNAME }}" -var="image_tag=${{ env.IMAGE_TAG }}"
+      run: terraform apply -auto-approve \
+        -var="docker_username=${{ env.DOCKER_USERNAME }}" \
+        -var="image_tag=${{ env.IMAGE_TAG }}" \
+        -var="kube_server=${{ env.KUBE_SERVER }}" \
+        -var="kube_ca_cert=${{ env.KUBE_CA_CERT }}" \
+        -var="kube_client_cert=${{ env.KUBE_CLIENT_CERT }}" \
+        -var="kube_client_key=${{ env.KUBE_CLIENT_KEY }}"
       working-directory: ./infra/terraform
 
     - name: Wait for deployments to be ready

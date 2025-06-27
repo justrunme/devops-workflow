@@ -1,6 +1,8 @@
 provider "kubernetes" {
-  # Configuration for Kubernetes provider will implicitly use local kubeconfig
-  # set up by Minikube.
+  host                   = var.kube_server
+  client_certificate     = var.kube_client_cert
+  client_key             = var.kube_client_key
+  cluster_ca_certificate = var.kube_ca_cert
 }
 
 # Deploy Redis
@@ -86,7 +88,7 @@ resource "kubernetes_deployment" "frontend_api" {
       spec {
         container {
           name  = "frontend-api"
-          image = "${var.docker_username}/frontend-api:${var.image_tag}" # Image will be dynamically set
+          image = "${var.docker_username}/devops-workflow-frontend-api:${var.image_tag}" # Image will be dynamically set
           port {
             container_port = 3000
           }
@@ -150,7 +152,7 @@ resource "kubernetes_deployment" "backend_worker" {
       spec {
         container {
           name  = "backend-worker"
-          image = "${var.docker_username}/backend-worker:${var.image_tag}" # Image will be dynamically set
+          image = "${var.docker_username}/devops-workflow-backend-worker:${var.image_tag}" # Image will be dynamically set
           env {
             name  = "REDIS_HOST"
             value = "redis"
@@ -166,4 +168,3 @@ resource "kubernetes_deployment" "backend_worker" {
     }
   }
 }
-
