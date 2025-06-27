@@ -119,6 +119,18 @@ jobs:
 
     - name: Test Frontend API
       run: |
+        echo "Port-forwarding service/frontend-api:80 → localhost:8080..."
+        kubectl port-forward service/frontend-api 8080:80 &
+        PORT_FORWARD_PID=$!
+        sleep 3
+
+        # Подождем до 15 секунд, пока порт действительно откроется
+        for i in {1..15}; do
+          nc -z localhost 8080 && echo "Port 8080 is open." && break
+          echo "Waiting for port-forward to be ready ($i)..."
+          sleep 1
+        done
+
         echo "Sending markdown to http://localhost:8080/convert"
 
         RESPONSE=$(curl -s -X POST -H "Content-Type: application/json" \
