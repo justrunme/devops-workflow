@@ -102,6 +102,16 @@ jobs:
         NODE_PORT=$(kubectl get service frontend-api -o jsonpath='{.spec.ports[0].nodePort}')
         echo "NODE_PORT=$NODE_PORT" >> $GITHUB_OUTPUT
 
+    - name: Describe frontend pod
+      run: |
+        echo "Pods:"
+        kubectl get pods -l app=frontend-api
+        POD=$(kubectl get pods -l app=frontend-api -o jsonpath='{.items[0].metadata.name}')
+        echo "Describing pod $POD"
+        kubectl describe pod $POD
+        echo "Logs:"
+        kubectl logs $POD
+
     - name: Test Frontend API
       run: |
         echo "Port-forwarding service/frontend-api:80 → localhost:8080..."
