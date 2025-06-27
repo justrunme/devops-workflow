@@ -78,6 +78,17 @@ jobs:
       with:
         terraform_version: 1.8.0
 
+    - name: Export KUBECONFIG
+      run: |
+        echo "KUBECONFIG=$HOME/.kube/config" >> $GITHUB_ENV
+
+    - name: Check Kubernetes cluster connectivity
+      run: |
+        echo "Current context:"
+        kubectl config current-context
+        echo "Nodes:"
+        kubectl get nodes
+
     - name: Terraform Init
       run: terraform init
       working-directory: ./infra/terraform
