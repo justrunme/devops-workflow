@@ -1,53 +1,27 @@
 const express = require('express');
-const redis = require('redis');
-const { promisify } = require('util');
-const crypto = require('crypto');
-
 const app = express();
-app.use(express.json());
 
-// Connect to Redis
-const redisClient = redis.createClient({ url: process.env.REDIS_URL || 'redis://localhost:6379' });
-redisClient.on('error', (err) => console.log('Redis Client Error', err));
-redisClient.connect();
+app.use(express.json()); // ОБЯЗАТЕЛЬНО, иначе req.body пустой
 
-const getAsync = promisify(redisClient.get).bind(redisClient);
-const setAsync = promisify(redisClient.set).bind(redisClient);
-
-// Endpoint to submit markdown
 app.post('/convert', async (req, res) => {
-    const { markdown } = req.body;
-    if (!markdown) {
-        return res.status(400).send({ error: 'Markdown content is required' });
-    }
+  const markdown = req.body.markdown;
 
-    const taskId = crypto.randomBytes(16).toString('hex');
-    const task = {
-        id: taskId,
-        status: 'pending',
-        markdown: markdown,
-        createdAt: new Date().toISOString()
-    };
+  if (!markdown) {
+    return res.status(400).json({ error: 'Missing markdown' });
+  }
 
-    await setAsync(taskId, JSON.stringify(task));
+  // Примитивная конвертация — заменишь на что-то реальное
+  const html = markdown
+    .replace(/^# (.*)$/gm, '<h1>$1</h1>')
+    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
 
-    res.status(202).send({ id: taskId });
+  res.json({
+    id: 'test-id',
+    html,
+    status: 'completed'
+  });
 });
 
-// Endpoint to check status and get result
-app.get('/result/:id', async (req, res) => {
-    const taskId = req.params.id;
-    const taskData = await getAsync(taskId);
-
-    if (!taskData) {
-        return res.status(404).send({ error: 'Task not found' });
-    }
-
-    const task = JSON.parse(taskData);
-    res.send(task);
-});
-
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-    console.log(`Frontend API listening on port ${PORT}`);
+app.listen(3000, () => {
+  console.log('Frontend API listening on port 3000');
 });
