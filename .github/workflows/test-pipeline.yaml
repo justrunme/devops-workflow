@@ -128,7 +128,7 @@ jobs:
         RESPONSE=$(curl -s -X POST -H "Content-Type: application/json" -d '{"markdown": "# Hello from Kind!\n\nThis is a **test**."}' http://localhost:8080/convert)
 
         echo "Response: $RESPONSE"
-        TASK_ID=$(echo $RESPONSE | jq -r '.id')
+        TASK_ID=$(echo "$RESPONSE" | jq -r '.id')
         if [ -z "$TASK_ID" ]; then
           echo "❌ Error: Could not get task ID."
           exit 1
