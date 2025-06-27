@@ -87,7 +87,7 @@ jobs:
       working-directory: ./infra/terraform
 
     - name: Terraform Apply
-      run: terraform apply -auto-approve -var="docker_username=${{ env.DOCKER_USERNAME }}" -var="image_tag=${{ env.IMAGE_TAG }}"
+      run: terraform apply -auto-approve -var="docker_username=${{ env.DOCKER_USERNAME }}" -var="image_tag=${{ env.IMAGE_TAG }}" -var="kubeconfig_path=$HOME/.kube/config"
       working-directory: ./infra/terraform
 
     - name: Wait for deployments to be ready

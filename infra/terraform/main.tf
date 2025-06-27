@@ -1,6 +1,5 @@
 provider "kubernetes" {
-  # Configuration for Kubernetes provider will implicitly use local kubeconfig
-  # set up by Minikube.
+  config_path = var.kubeconfig_path
 }
 
 # Deploy Redis

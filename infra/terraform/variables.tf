@@ -7,3 +7,8 @@ variable "image_tag" {
   description = "The Docker image tag to deploy."
   type        = string
 }
+
+variable "kubeconfig_path" {
+  type    = string
+  default = "~/.kube/config"
+}
