@@ -138,7 +138,7 @@ jobs:
               echo "Error: HTML content does not contain expected heading."
               exit 1
             fi
-            if echo "$HTML_CONTENT" | grep -q "<strong>test</strong>"; then
+            if ! echo "$HTML_CONTENT" | grep -q "<strong>test</strong>"; then
               echo "Error: HTML content does not contain expected bold text."
               exit 1
             fi
