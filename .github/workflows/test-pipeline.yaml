@@ -58,30 +58,20 @@ jobs:
     - name: Create Kind cluster
       run: kind create cluster --name ${{ env.KIND_CLUSTER_NAME }}
 
-    - name: Install yq
-      run: |
-        sudo wget https://github.com/mikefarah/yq/releases/download/v4.35.2/yq_linux_amd64 -O /usr/local/bin/yq
-        sudo chmod +x /usr/local/bin/yq
-
-    - name: Get Kind Kubeconfig details
-      run: |
-        KUBECONFIG_CONTENT=$(kind get kubeconfig --name ${{ env.KIND_CLUSTER_NAME }})
-        echo "$KUBECONFIG_CONTENT" > /tmp/kubeconfig.yaml
-        
-        CLUSTER_SERVER=$(yq '.clusters[0].cluster.server' /tmp/kubeconfig.yaml)
-        CLUSTER_CA_CERT=$(yq '.clusters[0].cluster["certificate-authority-data"]' /tmp/kubeconfig.yaml)
-        CLIENT_CERT=$(yq '.users[0].user["client-certificate-data"]' /tmp/kubeconfig.yaml)
-        CLIENT_KEY=$(yq '.users[0].user["client-key-data"]' /tmp/kubeconfig.yaml)
-
-        echo "KUBE_SERVER=$CLUSTER_SERVER" >> $GITHUB_ENV
-        echo "KUBE_CA_CERT=$CLUSTER_CA_CERT" >> $GITHUB_ENV
-        echo "KUBE_CLIENT_CERT=$CLIENT_CERT" >> $GITHUB_ENV
-        echo "KUBE_CLIENT_KEY=$CLIENT_KEY" >> $GITHUB_ENV
-
     - name: Load Docker images into Kind cluster
       run: |
         kind load docker-image ${{ env.DOCKER_USERNAME }}/devops-workflow-frontend-api:${{ env.IMAGE_TAG }} --name ${{ env.KIND_CLUSTER_NAME }}
         kind load docker-image ${{ env.DOCKER_USERNAME }}/devops-workflow-backend-worker:${{ env.IMAGE_TAG }} --name ${{ env.KIND_CLUSTER_NAME }}
+
+    - name: Debug Kubeconfig
+      run: |
+        echo "KUBECONFIG environment variable: $KUBECONFIG"
+        if [ -f "$KUBECONFIG" ]; then
+          echo "Kubeconfig file content:"
+          cat "$KUBECONFIG"
+        else
+          echo "Kubeconfig file not found at $KUBECONFIG"
+        fi
 
     - name: Set up Terraform
       uses: hashicorp/setup-terraform@v3
@@ -93,13 +83,7 @@ jobs:
       working-directory: ./infra/terraform
 
     - name: Terraform Apply
-      run: terraform apply -auto-approve \
-        -var="docker_username=${{ env.DOCKER_USERNAME }}" \
-        -var="image_tag=${{ env.IMAGE_TAG }}" \
-        -var="kube_server=${{ env.KUBE_SERVER }}" \
-        -var="kube_ca_cert=${{ env.KUBE_CA_CERT }}" \
-        -var="kube_client_cert=${{ env.KUBE_CLIENT_CERT }}" \
-        -var="kube_client_key=${{ env.KUBE_CLIENT_KEY }}"
+      run: terraform apply -auto-approve -var="docker_username=${{ env.DOCKER_USERNAME }}" -var="image_tag=${{ env.IMAGE_TAG }}"
       working-directory: ./infra/terraform
 
     - name: Wait for deployments to be ready

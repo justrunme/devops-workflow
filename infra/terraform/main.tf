@@ -1,8 +1,6 @@
 provider "kubernetes" {
-  host                   = var.kube_server
-  client_certificate     = var.kube_client_cert
-  client_key             = var.kube_client_key
-  cluster_ca_certificate = var.kube_ca_cert
+  # Configuration for Kubernetes provider will implicitly use local kubeconfig
+  # set up by Minikube.
 }
 
 # Deploy Redis
