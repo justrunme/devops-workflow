@@ -127,21 +127,23 @@ jobs:
         echo "Sending markdown to http://localhost:8080/convert"
         RESPONSE=$(curl -s -X POST -H "Content-Type: application/json" -d '{"markdown": "# Hello from Kind!\n\nThis is a **test**."}' http://localhost:8080/convert)
 
-        echo "Response: $RESPONSE"
+        echo "Raw API response:"
+        echo "$RESPONSE" | jq .
+
         TASK_ID=$(echo "$RESPONSE" | jq -r '.id')
         if [ -z "$TASK_ID" ]; then
-          echo "❌ Error: Could not get task ID."
+          echo "❌ Error: Could not parse task ID from response."
           exit 1
         fi
 
         # wait for task to complete
         for i in {1..10}; do
           RESULT=$(curl -s http://localhost:8080/result/$TASK_ID)
-          STATUS=$(echo $RESULT | jq -r '.status')
+          STATUS=$(echo "$RESULT" | jq -r '.status')
 
           if [ "$STATUS" = "completed" ]; then
             echo "✅ Task completed."
-            HTML=$(echo $RESULT | jq -r '.html')
+            HTML=$(echo "$RESULT" | jq -r '.html')
             echo "$HTML" | grep -q "<h1>Hello from Kind!</h1>" || { echo "❌ Missing <h1>"; exit 1; }
             echo "$HTML" | grep -q "<strong>test</strong>" || { echo "❌ Missing <strong>"; exit 1; }
             break
