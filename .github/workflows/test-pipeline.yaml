@@ -131,10 +131,13 @@ jobs:
         echo "$RESPONSE" | jq .
 
         TASK_ID=$(echo "$RESPONSE" | jq -r '.id')
-        if [ -z "$TASK_ID" ]; then
+
+        if [ -z "$TASK_ID" ] || [ "$TASK_ID" == "null" ]; then
           echo "❌ Error: Could not parse task ID from response."
           exit 1
         fi
+
+        echo "✅ Parsed task ID: $TASK_ID"
 
         # wait for task to complete
         for i in {1..10}; do
